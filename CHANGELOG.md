@@ -64,6 +64,12 @@ unknown partial key raising instead of resolving to nothing.
   Starlette behaves as documented. Running the suite against real
   Starlette/FastAPI needs a test-dependency approval and is the first thing to
   do when one is given.
+
+  **Verified once by hand against real Starlette 1.7.0**: A1/A2/A3/A5 driven
+  through a genuine Starlette app, confirming the response is a real
+  `starlette.responses.Response` and that `content-length` is not duplicated.
+  The branch is known to work; what is missing is automated cover that would
+  catch it breaking later.
 - **No SSR**, no Inertia v3 props (`deferredProps`, `mergeProps`,
   `encryptHistory`, `clearHistory`), no Django/WSGI, no server-rendered SEO
   baseline. Pin `@inertiajs/react` to `^2`.

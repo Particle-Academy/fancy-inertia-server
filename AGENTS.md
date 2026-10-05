@@ -94,8 +94,15 @@ shape; it cannot prove Starlette behaves as documented.
 
 Installing Starlette as a test dependency needs owner approval under the
 envelope's third-party rule. When one is given, run the whole conformance suite
-a second time with it present. Until then this is a named gap rather than
-coverage.
+a second time with it present.
+
+**Verified once by hand against real Starlette 1.7.0** (2026-10-05): fixtures
+A1, A2, A3 and A5 driven through a genuine `Starlette` app in a throwaway venv,
+including that the response really is a `starlette.responses.Response` and that
+`content-length` is not duplicated. So the branch is known to work; what is
+missing is *automated* coverage that would catch it breaking later.
+
+Until then this is a named gap in REGRESSION cover, not an unknown.
 
 ## Conventions
 
