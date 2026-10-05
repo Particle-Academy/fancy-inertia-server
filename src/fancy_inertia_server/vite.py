@@ -65,12 +65,49 @@ def _tags_from_manifest(manifest: dict[str, Any], entry: str, base: str) -> list
     return tags
 
 
+def _dev_url(dev_server: str, path: str) -> str:
+    """Join a dev-server origin to a path with exactly one slash between them.
+
+    `dev_server="/"` is the same-origin setup, where Vite proxies pages to the
+    backend and assets must be requested relatively. Joining that with an
+    f-string produces `//@vite/client`, which a browser reads as a
+    PROTOCOL-RELATIVE url — `http://@vite/client` — and so leaves the origin
+    entirely. It fails as a DNS error rather than a 404, which is a long way from
+    where the mistake was made.
+    """
+    return f"{dev_server.rstrip('/')}/{path.lstrip('/')}"
+
+
+def react_refresh_preamble(dev_server: str) -> str:
+    """The script `@vitejs/plugin-react` requires before any component loads.
+
+    Without it the plugin throws *"@vitejs/plugin-react can't detect preamble"*
+    from inside a component, which reads as a React error rather than a missing
+    script tag. Laravel emits the same thing from `@viteReactRefresh`; this is
+    transcribed from `Illuminate\\Foundation\\Vite::reactRefresh()` so it matches
+    the reference implementation rather than a recollection of it.
+
+    Reported by the first consumer within a day of 0.1.0, who had to supply their
+    own `assets` callable to work around its absence.
+    """
+    return (
+        '<script type="module">'
+        f"import RefreshRuntime from '{_dev_url(dev_server, '@react-refresh')}';"
+        "RefreshRuntime.injectIntoGlobalHook(window);"
+        "window.$RefreshReg$ = () => {};"
+        "window.$RefreshSig$ = () => (type) => type;"
+        "window.__vite_plugin_react_preamble_installed__ = true"
+        "</script>"
+    )
+
+
 def asset_tags(
     *,
     entry: str = "resources/js/app.tsx",
     manifest_path: str | Path = "public/build/manifest.json",
     base: str = "/build/",
     dev_server: str | None = None,
+    react_refresh: bool = True,
 ) -> Callable[[], str]:
     """The `<script>`/`<link>` tags for the root template.
 
@@ -78,14 +115,35 @@ def asset_tags(
     production. The choice is the caller's rather than sniffed from an
     environment variable, because guessing wrong is invisible: a production
     deploy pointing at a dev server renders a blank page with no error.
+
+    `dev_server="/"` is the same-origin form, for setups where Vite proxies pages
+    to the backend.
+
+    `react_refresh` defaults to **True**, and only applies in dev mode. The
+    default is on because this package exists to serve `fancy-inertia`, which is
+    React — and the two failures are not symmetrical. Omitting the preamble for a
+    React consumer breaks every component with an error that names React rather
+    than the missing tag; emitting it for a non-React consumer costs one 404 on
+    `/@react-refresh` in development and nothing else. Set it to False for a
+    Vue/Svelte client or a React setup not using `@vitejs/plugin-react`.
     """
 
     def tags() -> str:
         if dev_server:
-            return (
-                f'<script type="module" src="{dev_server}/@vite/client"></script>'
-                f'<script type="module" src="{dev_server}/{entry}"></script>'
+            parts = []
+
+            # BEFORE the entry module. The preamble installs a global that
+            # plugin-react's component transform looks for, so running it after
+            # the app module is the same as not running it at all.
+            if react_refresh:
+                parts.append(react_refresh_preamble(dev_server))
+
+            parts.append(
+                f'<script type="module" src="{_dev_url(dev_server, "@vite/client")}"></script>'
             )
+            parts.append(f'<script type="module" src="{_dev_url(dev_server, entry)}"></script>')
+
+            return "".join(parts)
 
         manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
         return "".join(_tags_from_manifest(manifest, entry, base))

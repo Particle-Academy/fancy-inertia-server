@@ -10,6 +10,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-05
+
+Both items reported by the YouGene estate within a day of integrating 0.1.0 —
+the first consumer finding, in an afternoon, two things the conformance fixtures
+had no opinion about because they are about HTML rather than the Inertia
+protocol.
+
+### Added
+
+- **React Fast Refresh preamble in dev mode**, on by default via
+  `asset_tags(react_refresh=True)`. `@vitejs/plugin-react` installs a global it
+  then requires, and without it throws *"@vitejs/plugin-react can't detect
+  preamble"* from inside a component — an error that names React rather than the
+  missing script tag. Transcribed from Laravel's
+  `Illuminate\Foundation\Vite::reactRefresh()` so it matches the reference
+  implementation rather than a recollection of it, and emitted **before** the
+  entry module, because a global installed after the components that look for it
+  is the same as no global.
+
+  Default is on because the two failures are not symmetrical: omitting it breaks
+  every component for a React consumer, while emitting it for a non-React one
+  costs a single 404 on `/@react-refresh` in development. Pass
+  `react_refresh=False` for a Vue/Svelte client or a React setup not using
+  `@vitejs/plugin-react`.
+
+- **Same-origin dev server**: `asset_tags(dev_server="/")`, for setups where
+  Vite proxies pages to the backend.
+
+### Fixed
+
+- **Dev-server URLs no longer double the slash.** `dev_server="/"` produced
+  `//@vite/client`, which a browser reads as a PROTOCOL-RELATIVE url
+  (`http://@vite/client`) and so leaves the origin entirely — failing as a DNS
+  error rather than a 404, a long way from where the mistake was made. A
+  trailing slash on an absolute `dev_server` and a leading slash on `entry` are
+  both tolerated now too; Vite config and Python config disagree about those
+  constantly.
+
+
 ## [0.1.0] - 2026-10-05
 
 First release. ASGI middleware speaking the Inertia **server** protocol, so a

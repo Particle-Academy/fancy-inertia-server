@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fancy-inertia-server"
-version = "0.1.0"
+version = "0.2.0"
 description = "ASGI middleware speaking the Inertia SERVER protocol, so a Starlette/FastAPI backend can run @particle-academy/fancy-inertia."
 readme = "README.md"
 # Matches every other Python package in the kit. 3.10 reaches end of life on

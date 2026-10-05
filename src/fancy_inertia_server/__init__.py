@@ -42,7 +42,7 @@ __all__ = [
     "make_response",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 def inertia(request: Any) -> Inertia:
