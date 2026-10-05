@@ -1,0 +1,113 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fancy-inertia-server"
+version = "0.1.0"
+description = "ASGI middleware speaking the Inertia SERVER protocol, so a Starlette/FastAPI backend can run @particle-academy/fancy-inertia."
+readme = "README.md"
+# Matches every other Python package in the kit. 3.10 reaches end of life on
+# 2026-10-31, and a floor that dies before the package's second release is not a
+# floor.
+requires-python = ">=3.11"
+# PEP 639: an SPDX expression, and NO license classifier. Build backends may
+# error when both are present.
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Particle Academy" }]
+keywords = [
+    "inertia",
+    "inertiajs",
+    "asgi",
+    "starlette",
+    "fastapi",
+    "react",
+    "middleware",
+    "fancy-inertia",
+    "particle-academy",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware",
+    "Typing :: Typed",
+]
+
+# ZERO runtime dependencies, and a design constraint rather than an accident.
+#
+# ASGI is a protocol of three dicts, so this needs no framework to implement.
+# Starlette is imported SOFTLY in response.py, only to hand FastAPI a type it
+# recognises — see the module docstring there. A hard starlette requirement
+# would make the package unusable from a non-Starlette ASGI stack and would buy
+# a FastAPI consumer nothing, since FastAPI already depends on it.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Particle-Academy/fancy-inertia-server"
+Issues = "https://github.com/Particle-Academy/fancy-inertia-server/issues"
+Source = "https://github.com/Particle-Academy/fancy-inertia-server"
+
+[project.optional-dependencies]
+
+[dependency-groups]
+test = ["pytest>=8.0"]
+lint = ["ruff>=0.16"]
+typecheck = ["mypy>=1.11"]
+dev = [{ include-group = "test" }, { include-group = "lint" }, { include-group = "typecheck" }]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fancy_inertia_server"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/README.md", "/CHANGELOG.md", "/AGENTS.md", "/LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# importlib mode pairs with src-layout: the working tree is never on sys.path,
+# so the tests exercise the INSTALLED package. Under the default mode a missing
+# py.typed or an unshipped file passes locally and breaks for every user.
+addopts = "--import-mode=importlib -ra"
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "N", "C4", "PT"]
+
+[tool.ruff.lint.per-file-ignores]
+# The conformance suite builds throwaway ASGI apps inside test bodies, so the
+# imports are deliberately local to the fixture that needs them.
+# N802/N806: a test name may carry a protocol word (GET), and a fixture may
+# return a CLASS, which is correctly capitalised.
+"tests/*" = ["PT011", "E402", "N802", "N806"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["fancy_inertia_server"]
+mypy_path = "src"
+strict = true
+# A prop value is whatever the application put there, and the ASGI scope is a
+# dict of anything. `Any` is the honest type for both; forbidding it would only
+# push the same uncertainty into casts.
+disallow_any_expr = false
+disallow_any_explicit = false
+
+# Starlette is a SOFT optional import (see response.py): present under FastAPI,
+# absent in this repository's own environment, and never a declared dependency.
+# "Cannot find implementation or library stub" is therefore the correct state of
+# the world rather than a missing stub to install -- scoped to this one module so
+# a genuinely missing import elsewhere still fails.
+[[tool.mypy.overrides]]
+module = ["starlette.*"]
+ignore_missing_imports = true

@@ -1,0 +1,111 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    name: Python ${{ matrix.python }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Third-party dependency allowlist. Cheap, and failing here is cheap --
+      # the same check gates the release, so a PR that adds an unapproved or
+      # abandoned dependency finds out now rather than at tag time.
+      # The allowlist is FETCHED, never vendored: one source, no copies to drift.
+      - name: Fetch the third-party allowlist
+        uses: actions/checkout@v4
+        with:
+          repository: Particle-Academy/.github
+          path: .third-party-allowlist
+          persist-credentials: false
+
+      - name: Third-party dependency allowlist
+        run: |
+          node .third-party-allowlist/third-party/check.mjs --repo .
+          node -e "require('node:fs').rmSync('.third-party-allowlist',{recursive:true,force:true})"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . --group dev
+
+      - name: Lint
+        run: ruff check . && ruff format --check .
+
+      - name: Type check
+        run: mypy
+
+      - name: Test
+        run: pytest -ra
+
+      # The suite and the implementation were written together, so every fixture
+      # passed on its first run. A check never observed to fail is
+      # indistinguishable from one that cannot, so the mutation sweep is part of
+      # CI rather than a thing someone remembers to run: it breaks one clause of
+      # the Inertia contract at a time and fails if the suite does not notice.
+      #
+      # It restores each file it mutates in a `finally`, and runs last so a
+      # crashed sweep cannot leave a mutated tree for another step to read.
+      - name: Sabotage sweep
+        run: python tests/sabotage.py
+
+  # Proves the zero-dependency claim rather than asserting it. The package
+  # imports and the whole conformance suite runs in an environment with nothing
+  # but pytest installed -- if a runtime import of starlette, httpx or anything
+  # else creeps in, this job is where it surfaces.
+  no-dependencies:
+    runs-on: ubuntu-latest
+    name: Zero runtime dependencies
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install with NO extras
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+          python -m pip install pytest
+
+      - name: Nothing but pytest and this package
+        run: |
+          echo "--- installed ---"
+          python -m pip list --format=freeze
+          python - <<'PY'
+          import importlib.metadata as md
+          allowed = {"fancy-inertia-server", "pytest", "pip", "setuptools", "wheel",
+                     "iniconfig", "packaging", "pluggy", "exceptiongroup", "tomli",
+                     "colorama", "pygments"}
+          installed = {d.metadata["Name"].lower() for d in md.distributions()}
+          extra = installed - allowed
+          assert not extra, f"unexpected packages pulled in: {sorted(extra)}"
+          print("clean:", sorted(installed))
+          PY
+
+      - name: Import and run the suite without starlette
+        run: |
+          python -c "import starlette" && exit 1 || echo "starlette absent, as expected"
+          python -c "import fancy_inertia_server; print(fancy_inertia_server.__version__)"
+          pytest -ra
