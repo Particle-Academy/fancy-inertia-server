@@ -107,7 +107,19 @@ def test_does_not_set_content_length_on_the_starlette_branch(stub_starlette):
 
 
 def test_falls_back_to_raw_asgi_when_starlette_is_absent(monkeypatch):
+    # BOTH entries, and the second is the one that matters.
+    #
+    # `sys.modules["starlette"] = None` alone makes `import starlette` raise --
+    # but this package imports `from starlette.responses import Response`, which
+    # resolves straight out of `sys.modules["starlette.responses"]` when anything
+    # has already imported it. So with starlette actually installed the fallback
+    # was never taken and this test asserted nothing.
+    #
+    # It passed for two weeks because starlette was ABSENT from the environment:
+    # the test was measuring the machine, not the code. Adding starlette as a
+    # test dependency is what exposed it.
     monkeypatch.setitem(sys.modules, "starlette", None)
+    monkeypatch.setitem(sys.modules, "starlette.responses", None)
     monkeypatch.setattr(response_module, "_starlette_response", None)
     monkeypatch.setattr(response_module, "_checked", False)
 

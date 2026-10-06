@@ -58,7 +58,15 @@ Source = "https://github.com/Particle-Academy/fancy-inertia-server"
 [project.optional-dependencies]
 
 [dependency-groups]
-test = ["pytest>=8.0"]
+# starlette is the framework this package EXISTS to integrate with, as a test
+# dependency only -- a standing approval (owner, 2026-10-06), the same shape as
+# react-fancy carrying React in devDependencies. It is NOT a runtime dependency
+# and `dependencies` stays empty; a dedicated CI job proves that by running the
+# whole suite with starlette absent.
+#
+# Without it the conformance suite only ever exercised the raw-ASGI branch --
+# the branch a FastAPI consumer never reaches.
+test = ["pytest>=8.0", "starlette>=0.40"]
 lint = ["ruff>=0.16"]
 typecheck = ["mypy>=1.11"]
 dev = [{ include-group = "test" }, { include-group = "lint" }, { include-group = "typecheck" }]

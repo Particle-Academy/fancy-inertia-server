@@ -75,34 +75,46 @@ ruff check . && ruff format --check . && mypy
 ```
 
 - **`tests/asgi.py` is a hand-written ASGI driver**, so the suite needs no HTTP
-  client. A harness pulling in `httpx` or `starlette` would quietly make the
-  zero-dependency claim untrue for anyone running the suite, and would test
-  those libraries as much as ours.
+  client. A harness pulling in `httpx` would test that library's request handling
+  as much as ours, and the driver is forty lines because ASGI is three dicts.
+
+  It also means the suite runs with NO dependencies at all, which is what lets
+  the `no-dependencies` CI job execute the same fixtures against the raw ASGI
+  branch. Starlette is in the `test` group so the other branch is covered too --
+  that is a deliberate exception for the framework this package integrates with,
+  not a drift. `httpx` would not earn the same exception.
 - **`tests/sabotage.py` is not optional.** Every fixture passed on its first run
   because the suite and the implementation were written together, which is the
   easiest way to write a suite that asserts only what the code already does. Run
   it after changing anything in `src/`; a mutation that SURVIVES is a gap in the
   suite, not a win.
 
-### The gap you should know about
+### Both response branches are covered, and that took a dependency
 
-**The Starlette branch of `make_response` is tested with a stub, not with
-Starlette.** It is not installed here, so the conformance suite exercises the
-raw-ASGI branch only — which is the branch a FastAPI consumer will never reach.
-`tests/test_response_branch.py` asserts the branching contract and the call
-shape; it cannot prove Starlette behaves as documented.
+`make_response` returns a real `starlette.responses.Response` when Starlette is
+importable and a raw ASGI app when it is not. Both branches are now exercised by
+the SAME conformance fixtures, twice:
 
-Installing Starlette as a test dependency needs owner approval under the
-envelope's third-party rule. When one is given, run the whole conformance suite
-a second time with it present.
+* **With Starlette** -- it is in the `test` dependency group, so `pytest` locally
+  and the matrix job in CI run every fixture against a real Starlette response.
+  This is the branch a FastAPI consumer actually reaches.
+* **Without it** -- the `no-dependencies` CI job installs the package and pytest
+  and nothing else, and runs the same fixtures against the raw ASGI fallback.
+  That job also proves the zero-RUNTIME-dependency claim rather than asserting it.
 
-**Verified once by hand against real Starlette 1.7.0** (2026-10-05): fixtures
-A1, A2, A3 and A5 driven through a genuine `Starlette` app in a throwaway venv,
-including that the response really is a `starlette.responses.Response` and that
-`content-length` is not duplicated. So the branch is known to work; what is
-missing is *automated* coverage that would catch it breaking later.
+Starlette is a TEST dependency only; `dependencies` stays empty. It is the
+framework this package exists to integrate with, which the owner made a standing
+approval on 2026-10-06 -- the same shape as react-fancy carrying React in
+devDependencies.
 
-Until then this is a named gap in REGRESSION cover, not an unknown.
+**Adding it immediately found a test that was measuring the machine rather than
+the code.** `test_falls_back_to_raw_asgi_when_starlette_is_absent` set
+`sys.modules["starlette"] = None` but not `sys.modules["starlette.responses"]`,
+and this package imports `from starlette.responses import Response` -- which
+resolves straight out of the module cache. With Starlette absent from the
+environment the test passed for the wrong reason; the moment it was installed,
+the test went red and the hole was visible. If you ever stub a module here, stub
+every submodule the import path actually touches.
 
 ## Conventions
 

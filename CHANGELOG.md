@@ -10,6 +10,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The Starlette response branch is now covered by the conformance suite**, not
+  by a stub and a hand-check. Starlette joins the `test` dependency group (test
+  only -- `dependencies` stays empty, and the `no-dependencies` CI job proves
+  it), so every fixture runs against a real `starlette.responses.Response` as
+  well as against the raw ASGI fallback. The known gap recorded in 0.1.0 is
+  closed.
+
+### Fixed
+
+- `test_falls_back_to_raw_asgi_when_starlette_is_absent` was asserting nothing.
+  It stubbed `sys.modules["starlette"]` but not `sys.modules["starlette.responses"]`,
+  and the import path is `from starlette.responses import Response` -- so it
+  passed only because Starlette was absent from the environment. It was
+  measuring the machine, not the code, and installing Starlette is what exposed it.
+
+
 ## [0.2.0] - 2026-10-05
 
 Both items reported by the YouGene estate within a day of integrating 0.1.0 —
