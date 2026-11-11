@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Releases need a lab-run certificate.** `publish.yml` gains a read-only
+  `lab-certificate` job that every publishing job needs: a tag is published only
+  when the fancy-labs lab has certified that exact version and commit. Consumers
+  do nothing; this changes how releases are cut, not what the package does.
+
 - **The Starlette response branch is now covered by the conformance suite**, not
   by a stub and a hand-check. Starlette joins the `test` dependency group (test
   only -- `dependencies` stays empty, and the `no-dependencies` CI job proves
@@ -26,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the import path is `from starlette.responses import Response` -- so it
   passed only because Starlette was absent from the environment. It was
   measuring the machine, not the code, and installing Starlette is what exposed it.
-
 
 ## [0.2.0] - 2026-10-05
 
@@ -65,7 +69,6 @@ protocol.
   trailing slash on an absolute `dev_server` and a leading slash on `entry` are
   both tolerated now too; Vite config and Python config disagree about those
   constantly.
-
 
 ## [0.1.0] - 2026-10-05
 
