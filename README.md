@@ -23,6 +23,13 @@ Not on PyPI yet. Until it is:
 pip install git+https://github.com/Particle-Academy/fancy-inertia-server@main
 ```
 
+<!-- fancy-agents-note:start -->
+> **For agents.** This package is not listed on the Fancy MCP catalog server
+> yet. The server, `https://ui.particle.academy/mcp` (streamable HTTP, no API key; MCP id
+> `fancy-ui`), lists the released Fancy packages with install commands and
+> docs. How an agent installs and uses this package is in [AGENTS.md](https://github.com/Particle-Academy/fancy-inertia-server/blob/main/AGENTS.md).
+<!-- fancy-agents-note:end -->
+
 ## Quick start
 
 ```python
@@ -145,11 +152,6 @@ data than requested is not a missing feature, it is a wrong answer.
 Inertia server contract, transcribed one test per fixture. That contract was
 derived by reading the `@inertiajs/core` client source rather than the Inertia
 documentation, so it asserts what the client actually does.
-
-```bash
-pip install -e . --group dev
-pytest
-```
 
 ## Licence
 

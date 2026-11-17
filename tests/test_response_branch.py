@@ -18,7 +18,7 @@ is preferred when importable, and that it is called with arguments the real
 class accepts.
 
 **This is deliberately weaker than the real thing, and the weakness is named in
-AGENTS.md.** A stub proves we call Starlette correctly as documented; it cannot
+CONTRIBUTING.md.** A stub proves we call Starlette correctly as documented; it cannot
 prove Starlette behaves as documented. Running the conformance suite against
 real Starlette and FastAPI is the open item.
 """

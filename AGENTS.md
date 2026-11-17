@@ -1,128 +1,75 @@
-# AGENTS.md — fancy-inertia-server
+# Using fancy-inertia-server — guide for agents
 
-ASGI middleware speaking the Inertia **server** protocol. `CLAUDE.md` points
-here. Read the envelope's `RULES.md` too — process rules live there, not here.
+How an agent installs and uses this package in a consumer app. What the package
+is, is in [README.md](./README.md). Notes for working ON this repo's code are in
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
-## The rule that shapes this repo
+## Install
 
-**Zero runtime dependencies, and ASGI rather than a framework.** This is
-middleware for Starlette and FastAPI, and it depends on neither. ASGI is a
-protocol of three dicts, so none is needed; a hard `starlette` requirement would
-make the package unusable from any other ASGI stack and would buy a FastAPI
-consumer nothing, since FastAPI already depends on it.
-
-Starlette is imported **softly**, once, in `response.py`, for exactly one reason:
-FastAPI inspects what a handler returns and serializes anything that is not a
-`starlette.responses.Response`. Returning a raw ASGI callable there would be
-JSON-encoded into nonsense. That is the whole justification, and it is the only
-soft import that earns its place.
-
-`dependencies = []` in `pyproject.toml` is a constraint, not a current state.
-
-## What this package owes
-
-It is a protocol adapter, so it owes **the protocol as the client actually
-implements it** — not as the Inertia documentation describes it. The contract is
-`.ai/plans/polyglot/specs/fancy-inertia.md` §7 in the envelope, derived by
-reading `@inertiajs/core`'s source. Three clauses matter more than the rest, and
-each has a fixture:
-
-1. **A stale asset version is a BARE `409`.** `409` *with* `X-Inertia-Location`
-   is the external-redirect branch; `isLocationVisit()` in the client is
-   literally `hasStatus(409) && hasHeader("x-inertia-location")`. Adding the
-   header on a version mismatch makes every stale response read as a redirect,
-   and the app-update banner never appears. The protocol docs invite exactly
-   this misreading.
-
-2. **An unknown partial key resolves to nothing — it does not raise.**
-   `useAppUpdate` pings with `X-Inertia-Partial-Data: __app_update_ping__`, a
-   prop no page declares. An adapter that errors there turns the update detector
-   into a permanent no-op, or makes every deploy 500. This is not special-cased
-   to that name: *any* unknown key yields nothing, or the next hook the client
-   adds breaks the server.
-
-3. **`props.errors` is flat.** One string per field, dotted keys verbatim. A
-   list renders `[object Array]` into `<Input error={…}>` and type-checks
-   nowhere.
-
-**The version check lives in the middleware, not in `render()`**, because the
-spec requires it to run before prop resolution — otherwise the ping costs a full
-page render on every poll. `tests/test_conformance.py` asserts this by making
-prop resolution raise and checking the `409` still comes back.
-
-## What 0.1.0 does not do
-
-Stated here so it is a decision rather than a discovery:
-
-- No SSR, no Inertia v3 props (`deferredProps` / `mergeProps` /
-  `encryptHistory` / `clearHistory`), no Django or WSGI, no server-rendered SEO.
-  Pin `@inertiajs/react` to `^2`. Dropping v3 is what makes this package small —
-  it is the one row the kit's spec prices moderate-hard.
-- **But `X-Inertia-Partial-Except` IS honoured**, despite the rest of v2 being
-  out of scope. Ignoring it would *invert* its meaning and return precisely the
-  props the caller asked to be spared. An unimplemented feature that sends more
-  data than requested is not a missing feature, it is a wrong answer. Any future
-  "not implemented yet" decision here gets the same test: does ignoring this
-  relax the request, or reverse it?
-
-## Testing
+Not on PyPI yet. Until it is:
 
 ```bash
-pip install -e . --group dev
-pytest                      # 21 tests
-python tests/sabotage.py    # 8 mutations, all must be CAUGHT
-ruff check . && ruff format --check . && mypy
+pip install git+https://github.com/Particle-Academy/fancy-inertia-server@main
 ```
 
-- **`tests/asgi.py` is a hand-written ASGI driver**, so the suite needs no HTTP
-  client. A harness pulling in `httpx` would test that library's request handling
-  as much as ours, and the driver is forty lines because ASGI is three dicts.
+Once published: `pip install fancy-inertia-server`.
 
-  It also means the suite runs with NO dependencies at all, which is what lets
-  the `no-dependencies` CI job execute the same fixtures against the raw ASGI
-  branch. Starlette is in the `test` group so the other branch is covered too --
-  that is a deliberate exception for the framework this package integrates with,
-  not a drift. `httpx` would not earn the same exception.
-- **`tests/sabotage.py` is not optional.** Every fixture passed on its first run
-  because the suite and the implementation were written together, which is the
-  easiest way to write a suite that asserts only what the code already does. Run
-  it after changing anything in `src/`; a mutation that SURVIVES is a gap in the
-  suite, not a win.
+- Python `>=3.11`. Zero runtime dependencies; Starlette is used when present.
+- The client half is `@particle-academy/fancy-inertia` (or any Inertia React
+  client). Pin `@inertiajs/react` to `^2`.
 
-### Both response branches are covered, and that took a dependency
+## Find it on the Fancy MCP server
 
-`make_response` returns a real `starlette.responses.Response` when Starlette is
-importable and a raw ASGI app when it is not. Both branches are now exercised by
-the SAME conformance fixtures, twice:
+Not listed on the Fancy MCP catalog server
+(`https://ui.particle.academy/mcp`, MCP id `fancy-ui`) yet; it appears there
+once published. Look for it later with `search-backend-packages` (stack
+`python`). The client, `fancy-inertia`, is listed: `search-components` or
+`install-instructions` with the slug `fancy-inertia`.
 
-* **With Starlette** -- it is in the `test` dependency group, so `pytest` locally
-  and the matrix job in CI run every fixture against a real Starlette response.
-  This is the branch a FastAPI consumer actually reaches.
-* **Without it** -- the `no-dependencies` CI job installs the package and pytest
-  and nothing else, and runs the same fixtures against the raw ASGI fallback.
-  That job also proves the zero-RUNTIME-dependency claim rather than asserting it.
+## API essentials
 
-Starlette is a TEST dependency only; `dependencies` stays empty. It is the
-framework this package exists to integrate with, which the owner made a standing
-approval on 2026-10-06 -- the same shape as react-fancy carrying React in
-devDependencies.
+```python
+from fastapi import FastAPI, Request
+from fancy_inertia_server import InertiaConfig, InertiaMiddleware, inertia
+from fancy_inertia_server.vite import asset_tags, manifest_version, root_template
 
-**Adding it immediately found a test that was measuring the machine rather than
-the code.** `test_falls_back_to_raw_asgi_when_starlette_is_absent` set
-`sys.modules["starlette"] = None` but not `sys.modules["starlette.responses"]`,
-and this package imports `from starlette.responses import Response` -- which
-resolves straight out of the module cache. With Starlette absent from the
-environment the test passed for the wrong reason; the moment it was installed,
-the test went red and the hole was visible. If you ever stub a module here, stub
-every submodule the import path actually touches.
+assets = asset_tags(entry="resources/js/app.tsx", dev_server="http://localhost:5173")
 
-## Conventions
+app = FastAPI()
+app.add_middleware(
+    InertiaMiddleware,
+    config=InertiaConfig(
+        version=manifest_version("public/build/manifest.json"),
+        root_template=root_template(assets=assets, title="My app"),
+    ),
+)
 
-- **Fixture numbers in test names.** `test_a3_…` so a failure names the clause of
-  the contract it broke, not just a behaviour.
-- **`--import-mode=importlib` with src-layout**: the tests exercise the
-  INSTALLED package. Under the default mode a missing `py.typed` or an unshipped
-  file passes locally and breaks for every user.
-- **`filterwarnings = ["error"]`.** It has already caught an invented pytest
-  marker. Do not relax it to silence a warning you have not read.
-- Python floor is **3.11**, matching every other Python package in the kit.
+@app.get("/users/{user_id}")
+async def show_user(request: Request, user_id: int):
+    return inertia(request).render("Users/Show", {"user": load(user_id)})
+```
+
+- Exports: `InertiaMiddleware`, `InertiaConfig`, `inertia(request)` (takes a
+  Starlette / FastAPI `Request` or a bare ASGI scope), `flatten_errors`,
+  `make_response`; Vite helpers in `fancy_inertia_server.vite`.
+- `render(component, props)` answers HTML with `data-page` for a normal request
+  and page-object JSON for an `X-Inertia` one.
+- Shared props: app-wide `InertiaConfig(share=lambda scope: {...})`, or per
+  request `inertia(request).share(...)`. Page props win over both.
+- `root_template` can be any `Callable[[str], str]`; it receives the page JSON
+  already escaped for a single-quoted attribute.
+- `asset_tags(..., react_refresh=True)` (the default) emits the React Fast
+  Refresh preamble in dev; `dev_server="/"` for a same-origin dev server.
+
+## Traps
+
+- **`props.errors` must be flat**: one string per field. Run validator output
+  through `flatten_errors()`; dotted keys pass through verbatim.
+- **No SSR, no Inertia v3 props** (`deferredProps`, `mergeProps`,
+  `encryptHistory`, `clearHistory`), **no Django or WSGI**, no server-rendered
+  SEO baseline. Set `clientOnly: false` on the client.
+- **Pass `react_refresh=False`** for a Vue / Svelte client, or a React setup not
+  using `@vitejs/plugin-react`.
+- A stale asset version is answered with a bare `409` by the middleware, before
+  your handler runs; an external redirect is `409` with `X-Inertia-Location`.
+  Do not add that header to version responses yourself.
