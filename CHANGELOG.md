@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Docs:** the README and CONTRIBUTING heading "What 0.1.0 does not do" is now
+  "What it does not do" (the package is at 0.2.0 and the list still holds), and
+  the `tests/test_response_branch.py` docstring no longer calls the
+  real-Starlette run an open item: Starlette is in the `test` group and the
+  conformance suite runs against it. The FastAPI example in `AGENTS.md` gains
+  the second blank line before `@app.get`, which `ruff format --check` (it
+  formats Python blocks in Markdown) was failing CI on. No code changed;
+  nothing to do.
 - `test_falls_back_to_raw_asgi_when_starlette_is_absent` was asserting nothing.
   It stubbed `sys.modules["starlette"]` but not `sys.modules["starlette.responses"]`,
   and the import path is `from starlette.responses import Response` -- so it

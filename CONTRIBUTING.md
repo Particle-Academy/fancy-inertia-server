@@ -55,7 +55,7 @@ spec requires it to run before prop resolution — otherwise the ping costs a fu
 page render on every poll. `tests/test_conformance.py` asserts this by making
 prop resolution raise and checking the `409` still comes back.
 
-## What 0.1.0 does not do
+## What it does not do
 
 Stated here so it is a decision rather than a discovery:
 

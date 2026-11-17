@@ -1,26 +1,19 @@
-"""The Starlette branch of `make_response`, which the conformance suite misses.
+"""The BRANCHING CONTRACT of `make_response`: Starlette when importable, raw ASGI when not.
 
 ## Why this file exists
 
 `response.py` soft-imports Starlette so FastAPI gets a type it recognises. Which
-branch runs therefore depends on what is installed — and Starlette is NOT
-installed in this repository's test environment, so the whole conformance suite
-exercised the raw-ASGI branch only.
+branch runs therefore depends on what is installed. When this file was written
+Starlette was not in the test environment, so the whole conformance suite
+exercised the raw-ASGI branch only — the branch no FastAPI consumer ever uses.
 
-That is the branch **gene will never use**: FastAPI depends on Starlette, so the
-first consumer runs the half that nothing had tested. "17 passed" was true and
-covered the wrong path.
-
-Installing Starlette to test the real thing needs an owner approval for a test
-dependency, which has not been given. So these tests inject a stub module with
-the real `Response` signature and assert the BRANCHING CONTRACT: that Starlette
-is preferred when importable, and that it is called with arguments the real
-class accepts.
-
-**This is deliberately weaker than the real thing, and the weakness is named in
-CONTRIBUTING.md.** A stub proves we call Starlette correctly as documented; it cannot
-prove Starlette behaves as documented. Running the conformance suite against
-real Starlette and FastAPI is the open item.
+That gap is closed: Starlette is now in the `test` dependency group, and the
+conformance suite runs every fixture against a real
+`starlette.responses.Response` (see CONTRIBUTING.md). These tests remain because
+they pin something the conformance suite does not: that Starlette is preferred
+when importable, that it is called with arguments the real class accepts, and
+that the raw-ASGI fallback is taken when it is absent. They inject stub modules
+to force each branch regardless of what the environment has installed.
 """
 
 from __future__ import annotations

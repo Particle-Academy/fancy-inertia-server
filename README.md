@@ -127,7 +127,7 @@ covered by a conformance fixture.
 The version check runs in the middleware, **before** your route handler, so a
 stale-version ping costs nothing.
 
-## What 0.1.0 does not do
+## What it does not do
 
 Stated rather than discovered:
 

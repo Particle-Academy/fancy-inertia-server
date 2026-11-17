@@ -44,6 +44,7 @@ app.add_middleware(
     ),
 )
 
+
 @app.get("/users/{user_id}")
 async def show_user(request: Request, user_id: int):
     return inertia(request).render("Users/Show", {"user": load(user_id)})

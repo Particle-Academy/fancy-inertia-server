@@ -137,7 +137,7 @@ class Inertia:
         # not: IGNORING it would INVERT its meaning, returning precisely the
         # props the client asked to be spared. An unimplemented feature that
         # sends MORE data than requested is not a missing feature, it is a wrong
-        # answer. See CONTRIBUTING.md "What 0.1.0 does not do".
+        # answer. See CONTRIBUTING.md "What it does not do".
         except_header = self.header("x-inertia-partial-except")
         if except_header:
             keys -= {key.strip() for key in except_header.split(",") if key.strip()}
